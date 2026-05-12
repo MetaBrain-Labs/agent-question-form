@@ -3,8 +3,18 @@ import { z } from "zod";
 import {
   captureAgentResponse,
   logCaptureResult,
-  type AgentCaptureResult,
+  type StepCapture,
 } from "../utils/form-parser";
+
+// ─── Shared schema for the captures array ───
+const capturesSchema = z.array(
+  z.object({
+    stepId: z.string(),
+    agentReply: z.string(),
+    formDetected: z.boolean(),
+    formData: z.any().optional(),
+  })
+);
 
 // ─── Step 1: Parse design brief into structured requirements ───
 const parseBrief = createStep({
@@ -21,10 +31,7 @@ const parseBrief = createStep({
     brand: z.string(),
     scale: z.string(),
     constraints: z.string(),
-    // ─── 捕获结果 ───
-    agentReply: z.string(),
-    formDetected: z.boolean(),
-    formData: z.any().optional(),
+    captures: capturesSchema,
   }),
   execute: async ({ inputData, mastra }) => {
     if (!inputData) {
@@ -58,12 +65,16 @@ Return ONLY the JSON object. No prose, no question-form, no code blocks.`;
     ]);
 
     const text = response.text ?? "";
-
-    // ─── 捕获并解析 Agent 响应 ───
     const capture = captureAgentResponse(text);
     logCaptureResult("parse-brief", capture);
 
-    // Try to extract JSON from the response
+    const stepCapture: StepCapture = {
+      stepId: "parse-brief",
+      agentReply: capture.text,
+      formDetected: capture.hasQuestionForm,
+      formData: capture.questionForm,
+    };
+
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error("Agent did not return valid JSON requirements");
@@ -78,10 +89,7 @@ Return ONLY the JSON object. No prose, no question-form, no code blocks.`;
       brand: String(parsed.brand ?? "Pick a direction for me"),
       scale: String(parsed.scale ?? ""),
       constraints: String(parsed.constraints ?? ""),
-      // ─── 把捕获结果返回 ───
-      agentReply: capture.text,
-      formDetected: capture.hasQuestionForm,
-      formData: capture.questionForm,
+      captures: [stepCapture],
     };
   },
 });
@@ -98,14 +106,12 @@ const generateArtifact = createStep({
     brand: z.string(),
     scale: z.string(),
     constraints: z.string(),
+    captures: capturesSchema,
   }),
   outputSchema: z.object({
     html: z.string(),
     designNotes: z.string(),
-    // ─── 捕获结果 ───
-    agentReply: z.string(),
-    formDetected: z.boolean(),
-    formData: z.any().optional(),
+    captures: capturesSchema,
   }),
   execute: async ({ inputData, mastra }) => {
     if (!inputData) {
@@ -121,7 +127,19 @@ const generateArtifact = createStep({
 The user has already submitted their discovery form answers. Skip the form. Jump straight to RULE 3.
 
 Requirements:
-${JSON.stringify(inputData, null, 2)}
+${JSON.stringify(
+  {
+    outputType: inputData.outputType,
+    platform: inputData.platform,
+    audience: inputData.audience,
+    tone: inputData.tone,
+    brand: inputData.brand,
+    scale: inputData.scale,
+    constraints: inputData.constraints,
+  },
+  null,
+  2
+)}
 
 Your task:
 1. TodoWrite a concise plan (5-10 items).
@@ -137,28 +155,28 @@ Remember: embody the correct specialist persona, use skill seed templates, avoid
     ]);
 
     const text = response.text ?? "";
-
-    // ─── 捕获并解析 Agent 响应 ───
     const capture = captureAgentResponse(text);
     logCaptureResult("generate-artifact", capture);
 
-    // 如果 Agent 没有返回 artifact 而是返回了 question-form，记录日志
     if (capture.hasQuestionForm && !capture.hasArtifact) {
       console.warn(
         "⚠️ [generate-artifact] Agent returned question-form instead of artifact!"
       );
     }
 
-    // 优先使用 artifact 标签内的内容，否则用完整文本
     const html = capture.artifactHtml ?? text;
+
+    const stepCapture: StepCapture = {
+      stepId: "generate-artifact",
+      agentReply: capture.text,
+      formDetected: capture.hasQuestionForm,
+      formData: capture.questionForm,
+    };
 
     return {
       html,
       designNotes: "Artifact generated via design workflow",
-      // ─── 把捕获结果返回 ───
-      agentReply: capture.text,
-      formDetected: capture.hasQuestionForm,
-      formData: capture.questionForm,
+      captures: [...inputData.captures, stepCapture],
     };
   },
 });
@@ -170,6 +188,7 @@ const critiqueArtifact = createStep({
   inputSchema: z.object({
     html: z.string(),
     designNotes: z.string(),
+    captures: capturesSchema,
   }),
   outputSchema: z.object({
     scores: z.object({
@@ -182,10 +201,7 @@ const critiqueArtifact = createStep({
     overall: z.number(),
     summary: z.string(),
     weaknesses: z.array(z.string()),
-    // ─── 捕获结果 ───
-    agentReply: z.string(),
-    formDetected: z.boolean(),
-    formData: z.any().optional(),
+    captures: capturesSchema,
   }),
   execute: async ({ inputData, mastra }) => {
     if (!inputData) {
@@ -230,8 +246,6 @@ No prose outside the JSON.`;
     ]);
 
     const text = response.text ?? "";
-
-    // ─── 捕获并解析 Agent 响应 ───
     const capture = captureAgentResponse(text);
     logCaptureResult("critique-artifact", capture);
 
@@ -242,6 +256,13 @@ No prose outside the JSON.`;
 
     const parsed = JSON.parse(jsonMatch[0]);
     const scores = parsed.scores ?? {};
+
+    const stepCapture: StepCapture = {
+      stepId: "critique-artifact",
+      agentReply: capture.text,
+      formDetected: capture.hasQuestionForm,
+      formData: capture.questionForm,
+    };
 
     return {
       scores: {
@@ -256,10 +277,7 @@ No prose outside the JSON.`;
       weaknesses: Array.isArray(parsed.weaknesses)
         ? parsed.weaknesses.map(String)
         : [],
-      // ─── 把捕获结果返回 ───
-      agentReply: capture.text,
-      formDetected: capture.hasQuestionForm,
-      formData: capture.questionForm,
+      captures: [...inputData.captures, stepCapture],
     };
   },
 });
@@ -282,6 +300,7 @@ const questionFormWorkflow = createWorkflow({
     overall: z.number(),
     summary: z.string(),
     weaknesses: z.array(z.string()),
+    captures: capturesSchema,
   }),
 })
   .then(parseBrief)
