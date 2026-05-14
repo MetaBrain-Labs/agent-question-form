@@ -142,7 +142,7 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
-=======
+
 output.txt 
 node_modules 
 dist 
@@ -153,6 +153,6 @@ dist
 *.db-* 
 .netlify 
 .vercel 
->>>>>>> 16960b1 ("Initial commit from Mastra")
+
 mastra.duckdb
 mastra.duckdb.wal
