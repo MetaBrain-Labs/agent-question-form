@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { Message } from "../types";
+import { splitOnQuestionForms } from "../utils/question-form";
 
 interface Props {
   message: Message;
@@ -9,6 +10,15 @@ export function MessageBubble({ message }: Props) {
   const [thinkingOpen, setThinkingOpen] = useState(true);
   const [userScrolled, setUserScrolled] = useState(false);
   const thinkingRef = useRef<HTMLDivElement>(null);
+
+  if (message.role === "agent") {
+    const cleaned = useMemo(
+      () => stripArtifact(message.content),
+      [message.content],
+    );
+    const segments = useMemo(() => splitOnQuestionForms(cleaned), [cleaned]);
+    console.log("segments", segments);
+  }
 
   const isAtBottom = useCallback(() => {
     const el = thinkingRef.current;
@@ -55,6 +65,27 @@ export function MessageBubble({ message }: Props) {
         </div>
       )}
 
+      {message.questionForm && (
+        <div className="question-form-box">
+          {message.questionForm.state === "generating" ? (
+            <div className="qf-generating">
+              <div className="qf-pulse-ring" />
+              <div className="qf-label">正在生成 Question Form</div>
+              <div className="qf-dots">
+                <span />
+                <span />
+                <span />
+              </div>
+            </div>
+          ) : (
+            <div className="qf-complete">
+              <div className="qf-badge">✓ Question Form</div>
+              <pre className="qf-content">{message.questionForm.content}</pre>
+            </div>
+          )}
+        </div>
+      )}
+
       {message.toolCalls && message.toolCalls.length > 0 && (
         <div className="tool-calls-row">
           {message.toolCalls.map((tc, i) => (
@@ -77,7 +108,7 @@ export function MessageBubble({ message }: Props) {
         <div className="message-bubble agent-bubble">{message.content}</div>
       )}
 
-      {!message.content && !message.thinking && (
+      {!message.content && !message.thinking && !message.questionForm && (
         <div className="message-bubble agent-bubble">
           <span className="loading-dots-text">思考中</span>
         </div>
@@ -92,4 +123,15 @@ export function MessageBubble({ message }: Props) {
       )}
     </div>
   );
+}
+
+function stripArtifact(content: string): string {
+  const open = content.indexOf("<artifact");
+  if (open === -1) return content;
+  const closeTag = content.indexOf(">", open);
+  const end = content.indexOf("</artifact>", closeTag);
+  return (
+    content.slice(0, open) +
+    content.slice(end === -1 ? content.length : end + 11)
+  ).trim();
 }

@@ -3,6 +3,8 @@ export type StreamEventType =
   | "thinking"
   | "thinking-done"
   | "text"
+  | "question-form-start"
+  | "question-form-complete"
   | "tool-call"
   | "tool-result"
   | "step-finish"
@@ -25,6 +27,7 @@ export interface Message {
   role: "user" | "agent";
   content: string;
   thinking?: string;
+  questionForm?: { state: "generating" | "complete"; content?: string };
   toolCalls?: Array<{ name: string; args?: Record<string, unknown>; result?: unknown }>;
   usage?: Record<string, unknown>;
   timestamp: number;

@@ -86,6 +86,8 @@ export type StreamEventType =
   | "thinking"
   | "thinking-done"
   | "text"
+  | "question-form-start"
+  | "question-form-complete"
   | "tool-call"
   | "tool-result"
   | "step-finish"

@@ -1,6 +1,14 @@
-import { useState, useRef, useEffect, useCallback, type FormEvent } from "react";
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  type FormEvent,
+  useMemo,
+} from "react";
 import type { Message } from "../types";
 import { MessageBubble } from "./MessageBubble";
+import { splitOnQuestionForms } from "../utils/question-form";
 
 interface Props {
   messages: Message[];
@@ -10,7 +18,13 @@ interface Props {
   onClear: () => void;
 }
 
-export function ChatApp({ messages, isLoading, error, onSend, onClear }: Props) {
+export function ChatApp({
+  messages,
+  isLoading,
+  error,
+  onSend,
+  onClear,
+}: Props) {
   const [input, setInput] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -61,7 +75,7 @@ export function ChatApp({ messages, isLoading, error, onSend, onClear }: Props) 
         )}
 
         {messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
+          <MessageBubble key={msg.id} message={msg} />
         ))}
 
         {error && (
