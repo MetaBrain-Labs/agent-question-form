@@ -1,0 +1,24 @@
+<question-form id="discovery" title="Quick brief for your web generation">
+  { "description": "I'll lock these in before starting. Skip what doesn't apply
+  — I'll fill defaults.", "questions": [ { "id": "web-type", "label": "What kind
+  of web page/site?", "type": "radio", "required": true, "options": [ "Single
+  landing page", "Personal portfolio", "Blog", "Business/brochure site", "Web
+  app (interactive tool/dashboard)", "Other — I'll describe" ] }, { "id":
+  "tech-stack", "label": "Preferred tech stack (if any)?", "type": "checkbox",
+  "maxSelections": 2, "options": [ "HTML/CSS/JS only (plain, no framework)",
+  "React (create-react-app / Vite)", "Vue (Vue CLI / Vite)", "Next.js",
+  "Tailwind CSS (utility classes)", "No preference – choose something simple" ]
+  }, { "id": "design-style", "label": "Overall design vibe?", "type": "radio",
+  "required": false, "options": [ "Clean & minimal", "Modern & bold", "Playful &
+  colorful", "Corporate & professional", "Dark mode / futuristic", "No strong
+  preference" ] }, { "id": "sections", "label": "Must-have sections?", "type":
+  "textarea", "placeholder": "e.g. hero, about, services, testimonials, contact
+  form, pricing table, etc. Leave blank for a generic structure." }, { "id":
+  "responsive", "label": "Responsive/mobile-friendly?", "type": "radio",
+  "required": true, "options": [ "Yes, fully responsive", "Desktop only" ] }, {
+  "id": "colors-branding", "label": "Any specific colors, logo, or brand
+  assets?", "type": "text", "placeholder": "e.g. #2A3B4C and #E8F1F5, or 'use a
+  photography theme'" }, { "id": "extra-constraints", "label": "Anything else I
+  should know?", "type": "textarea", "placeholder": "e.g. must load fast, no
+  external dependencies, specific content, deadline, …" } ] }
+</question-form>

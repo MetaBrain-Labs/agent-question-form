@@ -7,7 +7,13 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "mastra dev",
     "build": "mastra build",
-    "start": "mastra start"
+    "start": "mastra start",
+    "chat": "tsx src/chat-server.ts",
+    "dev:client": "cd client && npm run dev",
+    "dev:server": "npm run chat",
+    "dev:all": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "build:client": "cd client && npm run build",
+    "preview": "npm run build:client && NODE_ENV=production npm run chat"
   },
   "keywords": [],
   "author": "",
@@ -24,11 +30,17 @@
     "@mastra/loggers": "^1.1.1",
     "@mastra/memory": "^1.17.5",
     "@mastra/observability": "^1.11.1",
+    "@tailwindcss/vite": "^4.3.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "@types/node": "^25.7.0",
+    "autoprefixer": "^10.5.0",
     "mastra": "^1.8.1",
-    "typescript": "^6.0.3"
+    "postcss": "^8.5.14",
+    "tailwindcss": "^4.3.0",
+    "tsx": "^4.21.0",
+    "typescript": "~5.7.0"
   }
 }

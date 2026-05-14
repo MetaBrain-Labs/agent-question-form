@@ -1,30 +1,73 @@
-# agent-question-form-pro
+# Agent Question Form Pro
 
-Welcome to your new [Mastra](https://mastra.ai/) project! We're excited to see what you'll build.
+基于 Mastra 框架的 AI 设计助手，支持流式对话、结构化问题表单、TodoWrite 进度卡片和历史对话管理。
 
-## Getting Started
+## 技术栈
 
-Start the development server:
+| 层 | 技术 |
+| --- | --- |
+| Agent 框架 | [Mastra](https://mastra.ai) |
+| 模型 | DeepSeek v4 Pro |
+| 后端 | Express (SSE 流式) |
+| 前端 | React + TypeScript + Vite |
+| 存储 | LibSQL + DuckDB |
 
-```shell
-npm run dev
+## 快速开始
+
+```bash
+# 1. 配置环境变量
+cp .env.example .env
+# 编辑 .env 填入 DEEPSEEK_API_KEY
+
+# 2. 安装依赖
+npm install
+cd client && npm install && cd ..
+
+# 3. 启动后端
+npm run chat              # localhost:3000
+
+# 4. 启动前端（新终端）
+npm run dev:client        # localhost:5173
+
+# 或一键启动
+npm run dev:all
 ```
 
-Open [http://localhost:4111](http://localhost:4111) in your browser to access [Mastra Studio](https://mastra.ai/docs/studio/overview). It provides an interactive UI for building and testing your agents, along with a REST API that exposes your Mastra application as a local service. This lets you start building without worrying about integration right away.
+打开 http://localhost:5173 开始对话。
 
-You can start editing files inside the `src/mastra` directory. The development server will automatically reload whenever you make changes.
+## 项目结构
 
-## Learn more
+```
+├── src/
+│   ├── mastra/              # Mastra 配置
+│   │   ├── agents/          # Agent 定义
+│   │   ├── workflows/       # 工作流
+│   │   ├── prompts/         # 系统提示词
+│   │   └── scorers/         # 评估器
+│   ├── chat-server.ts       # Express 后端 (SSE API)
+│   └── utils/               # 工具函数
+├── client/                  # React 前端
+│   └── src/
+│       ├── components/      # UI 组件
+│       ├── hooks/           # useChat hook
+│       └── utils/           # markdown, question-form 解析
+└── package.json
+```
 
-To learn more about Mastra, visit our [documentation](https://mastra.ai/docs/). Your bootstrapped project includes example code for [agents](https://mastra.ai/docs/agents/overview), [tools](https://mastra.ai/docs/agents/using-tools), [workflows](https://mastra.ai/docs/workflows/overview), [scorers](https://mastra.ai/docs/evals/overview), and [observability](https://mastra.ai/docs/observability/overview).
+## API
 
-If you're new to AI agents, check out our [course](https://mastra.ai/learn) and [YouTube videos](https://youtube.com/@mastra-ai). You can also join our [Discord](https://discord.gg/BTYqqHKUrf) community to get help and share your projects.
+| 端点 | 方法 | 说明 |
+| --- | --- | --- |
+| `/api/chat` | POST | SSE 流式对话，body: `{ message, threadId? }` |
+| `/api/threads` | GET | 获取历史线程列表 |
+| `/api/threads/:id/messages` | GET | 获取指定线程消息 |
+| `/api/health` | GET | 健康检查 |
 
-## Deploy to the Mastra platform
+## 特性
 
-The [Mastra platform](https://projects.mastra.ai) provides two products for deploying and managing AI applications built with the Mastra framework:
-
-- **Studio**: A hosted visual environment for testing agents, running workflows, and inspecting traces
-- **Server**: A production deployment target that runs your Mastra application as an API server
-
-Learn more in the [Mastra platform documentation](https://mastra.ai/docs/mastra-platform/overview).
+- **流式对话**：实时显示 Agent 回复，包含思考过程（reasoning）和文本内容
+- **结构化表单**：Agent 输出 `<question-form>` 时自动切换为可交互表单卡片
+- **TodoWrite 卡片**：Agent 输出任务列表时自动解析并渲染为进度卡片
+- **代码块复制**：一键复制 Markdown 代码块
+- **历史对话**：侧边栏展示线程历史，支持切换和新建
+- **智能滚动**：默认跟随最新内容，用户滚动后自动接管
