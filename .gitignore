@@ -154,3 +154,5 @@ dist
 .netlify 
 .vercel 
 >>>>>>> 16960b1 ("Initial commit from Mastra")
+mastra.duckdb
+mastra.duckdb.wal
