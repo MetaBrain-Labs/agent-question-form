@@ -98,7 +98,11 @@ export function QuestionFormView({
     <div className={`question-form${locked ? " question-form-locked" : ""}`}>
       <div className="question-form-head">
         <span className="question-form-icon" aria-hidden>
-          ?
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M6 6.5C6 5.67 6.67 5 7.5 5h.5a2 2 0 0 1 0 4h-.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            <circle cx="8" cy="11" r="0.8" fill="currentColor" />
+          </svg>
         </span>
         <div className="question-form-titles">
           <div className="question-form-title">{form.title}</div>
@@ -107,7 +111,9 @@ export function QuestionFormView({
           ) : null}
         </div>
         {locked ? (
-          <span className="question-form-pill">{"answered"}</span>
+          <span className="question-form-pill">
+            {submittedAnswers ? "已提交" : "只读"}
+          </span>
         ) : null}
       </div>
       <div className="question-form-body">
@@ -177,7 +183,7 @@ export function QuestionFormView({
                   onChange={(e) => update(q.id, e.target.value)}
                 >
                   <option value="" disabled>
-                    {"choose"}
+                    请选择
                   </option>
                   {q.options.map((opt) => (
                     <option key={opt} value={opt}>
@@ -213,10 +219,10 @@ export function QuestionFormView({
       <div className="question-form-foot">
         {locked ? (
           <span className="qf-locked-note">
-            {submittedAnswers ? "lockedSubmitted" : "lockedPrev"}
+            {submittedAnswers ? "表单已提交" : "历史记录（只读）"}
           </span>
         ) : (
-          <span className="qf-hint">{"hint"}</span>
+          <span className="qf-hint">请填写以上信息</span>
         )}
         {!locked ? (
           <button
@@ -224,9 +230,9 @@ export function QuestionFormView({
             className="primary"
             onClick={handleSubmit}
             disabled={!ready}
-            title={ready ? "submitTitle" : "submitDisabledTitle"}
+            title={ready ? "提交表单" : "请完成必填项"}
           >
-            {form.submitLabel ?? "submitDefault"}
+            {form.submitLabel ?? "提交"}
           </button>
         ) : null}
       </div>

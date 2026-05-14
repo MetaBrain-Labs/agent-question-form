@@ -5,10 +5,61 @@ import { fileURLToPath } from "url";
 import { mastra } from "./mastra/index.js";
 import {
   chunkToStreamEvent,
-  printAgentOutput,
 } from "./utils/print-agent-output.js";
 import type { StreamEvent } from "./utils/print-agent-output.js";
 import { ReadableStream } from "node:stream/web";
+
+// ── Helpers ──
+
+/** Parse <function_calls><invoke name="TodoWrite">…</invoke></function_calls> */
+function parseTodoWrite(block: string): StreamEvent["todos"] | null {
+  const invokeMatch = /<invoke\s+name="(todo_write|todowrite)"\s*>/i;
+  if (!invokeMatch.test(block)) return null;
+  const bodyMatch = /<invoke[^>]*>([\s\S]*?)<\/invoke>/i.exec(block);
+  if (!bodyMatch) return null;
+  const body = bodyMatch[1] ?? "";
+  const paramRe = /<parameter\s+name="todos"[^>]*\s*>\s*(\[[\s\S]*?\])\s*<\/parameter>/i;
+  const paramMatch = paramRe.exec(body);
+  if (paramMatch) {
+    try {
+      const arr: Array<{ content: string; status: string }> = JSON.parse(paramMatch[1] ?? "[]");
+      return arr.map((t, i) => ({
+        index: i,
+        content: t.content ?? "",
+        status: t.status ?? "pending",
+      }));
+    } catch { /* fall through */ }
+  }
+  // Fallback: parse individual <parameter name="todos" index="N">...</parameter>
+  const paramRe2 = /<parameter\s+name="todos"\s+index="(\d+)"\s*>(.*?)<\/parameter>/gi;
+  const todos: Array<{ index: number; content: string; status: string }> = [];
+  let m: RegExpExecArray | null;
+  while ((m = paramRe2.exec(body)) !== null) {
+    todos.push({
+      index: parseInt(m[1] ?? "0", 10),
+      content: (m[2] ?? "").trim(),
+      status: "pending",
+    });
+  }
+  return todos.length > 0 ? todos : null;
+}
+
+/** Strip <function_calls> blocks from text and return cleaned text + parsed todos */
+function extractFnCalls(
+  text: string
+): { cleaned: string; todos: StreamEvent["todos"] | null } {
+  const fnRe = /<function_calls>([\s\S]*?)<\/function_calls>/g;
+  let cleaned = text;
+  let todos: StreamEvent["todos"] | null = null;
+  let m: RegExpExecArray | null;
+  while ((m = fnRe.exec(text)) !== null) {
+    const block = m[0] ?? "";
+    const parsed = parseTodoWrite(block);
+    if (parsed) todos = parsed;
+    cleaned = cleaned.replace(block, "");
+  }
+  return { cleaned, todos };
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,7 +98,7 @@ app.get("/api/health", (_req, res) => {
 
 app.post("/api/chat", async (req, res) => {
   try {
-    const { message } = req.body as { message?: string };
+    const { message, threadId } = req.body as { message?: string; threadId?: string };
 
     if (!message) {
       res.status(400).json({ error: "message is required" });
@@ -59,6 +110,8 @@ app.post("/api/chat", async (req, res) => {
       res.status(500).json({ error: "Agent not found" });
       return;
     }
+
+    const thread = threadId ?? "default";
 
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
@@ -74,20 +127,21 @@ app.post("/api/chat", async (req, res) => {
 
     const stream = await agent.stream(message, {
       memory: {
-        thread: "chat-thread",
+        thread,
         resource: "chat-user",
       },
     });
 
-    const TAG_START = "<question-form";
-    const TAG_END = "</question-form>";
-    const PREFIXES = Array.from({ length: TAG_START.length }, (_, i) =>
-      TAG_START.slice(0, i + 1)
-    ); // ["<", "<q", "<qu", ... , "<question-form"]
+    const QF_START = "<question-form";
+    const QF_END = "</question-form>";
+    const QF_PREFIXES = Array.from({ length: QF_START.length }, (_, i) =>
+      QF_START.slice(0, i + 1)
+    );
+    const FN_START = "<function_calls>";
+    const FN_END = "</function_calls>";
 
-    let fullText = "";
-    let formState: "normal" | "collecting" = "normal";
-    let formBuffer = "";
+    let qfState: "normal" | "collecting" = "normal";
+    let qfBuffer = "";
     let pendingText = "";
 
     for await (const chunk of streamToAsyncIterable(stream.fullStream)) {
@@ -95,68 +149,103 @@ app.post("/api/chat", async (req, res) => {
       if (!event) continue;
 
       if (event.type === "text" && event.content) {
-        fullText += event.content;
 
-        if (formState === "normal") {
-          pendingText += event.content;
-
-          // 检测 <question-form（可能跨多个 chunk）
-          const tagIdx = pendingText.indexOf(TAG_START);
-          if (tagIdx !== -1) {
-            // 标签之前的普通文本先发送
-            if (tagIdx > 0) {
-              send({ type: "text", content: pendingText.slice(0, tagIdx) });
-            }
-            // 进入收集模式
-            formState = "collecting";
-            formBuffer = pendingText.slice(tagIdx);
-            pendingText = "";
-            send({ type: "question-form-start" });
-          } else {
-            // 未找到完整标签，检查末尾是否可能是标签前缀
-            const mayBePrefix = PREFIXES.some((p) => pendingText.endsWith(p));
-            if (!mayBePrefix) {
-              // 不可能是标签，安全发送
-              send({ type: "text", content: pendingText });
-              pendingText = "";
-            }
-            // 可能是前缀，保留在 pendingText 等待下一个 chunk
+        if (qfState === "collecting") {
+          qfBuffer += event.content;
+          const endIdx = qfBuffer.indexOf(QF_END);
+          if (endIdx !== -1) {
+            const formContent = qfBuffer.slice(0, endIdx + QF_END.length);
+            const rest = qfBuffer.slice(endIdx + QF_END.length);
+            send({ type: "question-form-complete", content: formContent });
+            qfState = "normal";
+            qfBuffer = "";
+            // Check rest for function_calls
+            const { cleaned, todos } = extractFnCalls(rest);
+            if (todos) send({ type: "todo-update", todos });
+            if (cleaned.trim()) send({ type: "text", content: cleaned });
           }
         } else {
-          // 收集模式：累积并检测 </question-form>
-          formBuffer += event.content;
-          const endIdx = formBuffer.indexOf(TAG_END);
-          if (endIdx !== -1) {
-            const formContent = formBuffer.slice(
-              0,
-              endIdx + TAG_END.length
-            );
-            const rest = formBuffer.slice(endIdx + TAG_END.length);
-            send({ type: "question-form-complete", content: formContent });
-            formState = "normal";
-            formBuffer = "";
-            pendingText = "";
-            if (rest.trim()) {
-              send({ type: "text", content: rest });
+          pendingText += event.content;
+
+          // 1) Check for <question-form>
+          const qfIdx = pendingText.indexOf(QF_START);
+          if (qfIdx !== -1) {
+            if (qfIdx > 0) {
+              const before = pendingText.slice(0, qfIdx);
+              const { cleaned, todos } = extractFnCalls(before);
+              if (todos) send({ type: "todo-update", todos });
+              if (cleaned.trim()) send({ type: "text", content: cleaned });
             }
+            qfState = "collecting";
+            qfBuffer = pendingText.slice(qfIdx);
+            pendingText = "";
+            send({ type: "question-form-start" });
+            continue;
+          }
+
+          // 2) Check for <function_calls>
+          const fnIdx = pendingText.indexOf(FN_START);
+          if (fnIdx !== -1) {
+            const fnEnd = pendingText.indexOf(FN_END, fnIdx);
+            if (fnEnd !== -1) {
+              // Complete block found — extract, parse, send remaining
+              const before = pendingText.slice(0, fnIdx);
+              const fnBlock = pendingText.slice(fnIdx, fnEnd + FN_END.length);
+              const after = pendingText.slice(fnEnd + FN_END.length);
+              if (before.trim()) send({ type: "text", content: before });
+              const todos = parseTodoWrite(fnBlock);
+              if (todos) send({ type: "todo-update", todos });
+              pendingText = after;
+              continue;
+            }
+            // Partial — might span chunks, buffer. Just let pendingText accumulate.
+            // If we haven't found FN_END, text stays in pendingText for next chunk.
+            if (pendingText.length > 10000) {
+              // Safety: flush if buffer gets too large without finding end tag
+              const quoteMatch = pendingText.lastIndexOf('"');
+              if (quoteMatch > fnIdx) {
+                const safeCut = pendingText.lastIndexOf("\n", quoteMatch);
+                if (safeCut > fnIdx) {
+                  const before = pendingText.slice(0, safeCut);
+                  const { cleaned } = extractFnCalls(before);
+                  if (cleaned.trim()) send({ type: "text", content: cleaned });
+                  pendingText = pendingText.slice(safeCut);
+                }
+              }
+            }
+            continue;
+          }
+
+          // 3) Check if pendingText end might be a prefix of <question-form or <function_calls
+          const mayBePrefix =
+            QF_PREFIXES.some((p) => pendingText.endsWith(p)) ||
+            FN_START.startsWith(pendingText.slice(-Math.min(pendingText.length, 10))) ||
+            Array.from({ length: Math.min(FN_START.length, pendingText.length) }, (_, i) =>
+              FN_START.slice(0, i + 1)
+            ).some((p) => pendingText.endsWith(p));
+
+          if (!mayBePrefix) {
+            send({ type: "text", content: pendingText });
+            pendingText = "";
           }
         }
       } else {
-        // 非文本事件（reasoning / tool-call 等）先 flush pending text
-        if (formState === "normal" && pendingText) {
-          send({ type: "text", content: pendingText });
+        if (qfState === "normal" && pendingText) {
+          const { cleaned, todos } = extractFnCalls(pendingText);
+          if (todos) send({ type: "todo-update", todos });
+          if (cleaned.trim()) send({ type: "text", content: cleaned });
           pendingText = "";
         }
         send(event);
       }
     }
 
-    // flush 残留的 pending text
-    if (formState === "normal" && pendingText) {
-      send({ type: "text", content: pendingText });
+    // flush
+    if (qfState === "normal" && pendingText) {
+      const { cleaned, todos } = extractFnCalls(pendingText);
+      if (todos) send({ type: "todo-update", todos });
+      if (cleaned.trim()) send({ type: "text", content: cleaned });
     }
-
-    printAgentOutput(fullText, "Agent Response");
 
     res.write("data: [DONE]\n\n");
     res.end();
@@ -172,6 +261,95 @@ app.post("/api/chat", async (req, res) => {
     }
   }
 });
+
+// ── Thread History ──
+
+app.get("/api/threads", async (req, res) => {
+  try {
+    const agent = mastra.getAgent("questionFromAgent");
+    if (!agent) {
+      res.status(500).json({ error: "Agent not found" });
+      return;
+    }
+    const memory = await agent.getMemory();
+    if (!memory) {
+      res.json({ threads: [] });
+      return;
+    }
+
+    const result = await memory.listThreads({
+      filter: { resourceId: String(req.query.resourceId ?? "chat-user") },
+      perPage: 50,
+      orderBy: { field: "createdAt", direction: "DESC" },
+    });
+
+    res.json({
+      threads: result.threads.map((t) => ({
+        id: t.id,
+        title: t.title ?? t.id.slice(0, 8),
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
+      })),
+    });
+  } catch (error) {
+    console.error("List threads error:", error);
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+app.get("/api/threads/:threadId/messages", async (req, res) => {
+  try {
+    const agent = mastra.getAgent("questionFromAgent");
+    if (!agent) {
+      res.status(500).json({ error: "Agent not found" });
+      return;
+    }
+    const memory = await agent.getMemory();
+    if (!memory) {
+      res.json({ messages: [] });
+      return;
+    }
+
+    const { threadId } = req.params;
+    const result = await memory.recall({
+      threadId,
+      perPage: 200,
+      includeSystemReminders: false,
+    });
+
+    res.json({
+      messages: result.messages.map((m) => ({
+        id: m.id,
+        role: m.role === "assistant" ? "agent" : m.role,
+        content: extractMessageText(m),
+        createdAt: m.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error("Get messages error:", error);
+    res.status(500).json({ error: String(error) });
+  }
+});
+
+/** Extract plain text from a MastraDBMessage, stripping <function_calls> blocks */
+function extractMessageText(m: any): string {
+  let text = "";
+  if (typeof m.content === "string") {
+    text = m.content;
+  } else if (m.content && typeof m.content === "object") {
+    if (typeof m.content.content === "string") text = m.content.content;
+    else if (Array.isArray(m.content.parts)) {
+      text = m.content.parts
+        .filter((p: any) => p.type === "text")
+        .map((p: any) => p.text ?? "")
+        .join("");
+    }
+  }
+  if (!text) return typeof m.content === "string" ? m.content : JSON.stringify(m.content);
+  // Strip <function_calls> blocks from stored text
+  const { cleaned } = extractFnCalls(text);
+  return cleaned.trim();
+}
 
 // 开发模式：API only，前端由 Vite dev server 提供
 // 生产模式：serve React 构建产物

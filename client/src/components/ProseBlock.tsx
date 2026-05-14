@@ -130,14 +130,7 @@ function FormBlock({
     return parseSubmittedAnswers(form, nextUserContent);
   }, [form, nextUserContent]);
   const wasSubmittedLocally = locallySubmitted.has(form.id);
-  /**
-   * isLastAssistant：当前message是最后一条assistant消息
-   * streaming：当前正在流式输出
-   * submittedFromHistory：当前message是从历史记录恢复的
-   * locallySubmitted：当前message是从本地临时提交的数据
-   *
-   * TODO 后续完善这些逻辑，目前先写死
-   */
+
   const interactive =
     isLastAssistant &&
     !streaming &&

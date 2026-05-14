@@ -2,13 +2,14 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { Message } from "../types";
 import { QuestionForm, splitOnQuestionForms } from "../utils/question-form";
 import { ProseBlock } from "./ProseBlock";
+import { TodoCard } from "./TodoCard";
 
 interface Props {
   message: Message;
   isLast: boolean;
   streaming: boolean;
   nextUserContent?: string;
-  onSubmitForm: () => void;
+  onFormSubmit?: (text: string) => void;
 }
 
 export function MessageBubble({
@@ -16,7 +17,7 @@ export function MessageBubble({
   isLast,
   streaming,
   nextUserContent,
-  onSubmitForm,
+  onFormSubmit,
 }: Props) {
   const [thinkingOpen, setThinkingOpen] = useState(true);
   const [userScrolled, setUserScrolled] = useState(false);
@@ -71,6 +72,10 @@ export function MessageBubble({
         </div>
       )}
 
+      {message.todos && message.todos.length > 0 && (
+        <TodoCard todos={message.todos} />
+      )}
+
       {message.toolCalls && message.toolCalls.length > 0 && (
         <div className="tool-calls-row">
           {message.toolCalls.map((tc, i) => (
@@ -97,9 +102,8 @@ export function MessageBubble({
           streaming={streaming}
           nextUserContent={nextUserContent}
           locallySubmitted={locallySubmitted}
-          onSubmitForm={(formId, text) => {
-            console.log("formId", formId);
-            console.log("text", text);
+          onSubmitForm={(_formId, text) => {
+            onFormSubmit?.(text);
           }}
         />
       )}
@@ -123,9 +127,8 @@ export function MessageBubble({
               streaming={streaming}
               nextUserContent={nextUserContent}
               locallySubmitted={locallySubmitted}
-              onSubmitForm={(formId, text) => {
-                console.log("formId", formId);
-                console.log("text", text);
+              onSubmitForm={(_formId, text) => {
+                onFormSubmit?.(text);
               }}
             />
           )}

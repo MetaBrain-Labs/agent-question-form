@@ -1,86 +1,5 @@
 import type { ChunkType } from "@mastra/core/stream";
 
-export function printStreamChunk(chunk: ChunkType): void {
-  switch (chunk.type) {
-    case "start":
-      console.log("[START] Agent run beginning...");
-      break;
-
-    case "step-start":
-      console.log(`[STEP-START] Step started (messageId: ${chunk.payload.messageId ?? "N/A"})`);
-      break;
-
-    case "reasoning-start":
-      console.log("[REASONING] Thinking...");
-      break;
-
-    case "reasoning-delta":
-      process.stdout.write(chunk.payload.text);
-      break;
-
-    case "reasoning-end":
-      console.log("\n[REASONING] Done thinking.");
-      break;
-
-    case "text-start":
-      console.log("[TEXT] Generation started.");
-      break;
-
-    case "text-delta":
-      process.stdout.write(chunk.payload.text);
-      break;
-
-    case "text-end":
-      console.log("\n[TEXT] Generation complete.");
-      break;
-
-    case "tool-call":
-      console.log(
-        `[TOOL-CALL] ${chunk.payload.toolName}(${JSON.stringify(chunk.payload.args)})`
-      );
-      break;
-
-    case "tool-result":
-      console.log(
-        `[TOOL-RESULT] ${chunk.payload.toolName}: ${JSON.stringify(chunk.payload.result)?.slice(0, 200)}`
-      );
-      break;
-
-    case "step-finish":
-      console.log(
-        `[STEP-FINISH] Reason: ${chunk.payload.stepResult?.reason ?? "N/A"}`
-      );
-      break;
-
-    case "finish":
-      console.log(
-        `[FINISH] Complete. Usage: ${JSON.stringify(chunk.payload.output?.usage ?? {})}`
-      );
-      break;
-
-    case "error":
-      console.error(`[ERROR] ${JSON.stringify(chunk.payload.error)}`);
-      break;
-
-    case "abort":
-      console.log("[ABORT] Stream aborted.");
-      break;
-
-    default:
-      console.log(`[UNHANDLED] type=${chunk.type}`);
-      break;
-  }
-}
-
-export function printAgentOutput(text: string, label?: string): void {
-  const divider = "=".repeat(60);
-  console.log(`\n${divider}`);
-  console.log(`  ${label ?? "Agent Output"}`);
-  console.log(divider);
-  console.log(text);
-  console.log(divider);
-}
-
 export type StreamEventType =
   | "start"
   | "thinking"
@@ -88,6 +7,7 @@ export type StreamEventType =
   | "text"
   | "question-form-start"
   | "question-form-complete"
+  | "todo-update"
   | "tool-call"
   | "tool-result"
   | "step-finish"
@@ -103,6 +23,7 @@ export interface StreamEvent {
   toolResult?: unknown;
   usage?: Record<string, unknown>;
   error?: unknown;
+  todos?: Array<{ index: number; content: string; status: string }>;
 }
 
 export function chunkToStreamEvent(chunk: ChunkType): StreamEvent | null {

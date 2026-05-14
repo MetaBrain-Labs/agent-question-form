@@ -11,7 +11,7 @@
  * Output is a React fragment of typed elements — no dangerouslySetInnerHTML,
  * so untrusted text can't smuggle markup through.
  */
-import { Fragment, type ReactNode } from "react";
+import { Fragment, useState, useCallback, type ReactNode } from "react";
 
 export function renderMarkdown(input: string): ReactNode {
   const blocks = parseBlocks(input);
@@ -138,11 +138,7 @@ function renderBlock(block: Block, key: number): ReactNode {
     );
   }
   if (block.kind === "code") {
-    return (
-      <pre key={key} className="md-code">
-        <code data-lang={block.lang ?? undefined}>{block.body}</code>
-      </pre>
-    );
+    return <CodeBlock key={key} lang={block.lang} body={block.body} />;
   }
   if (block.kind === "hr") {
     return <hr key={key} className="md-hr" />;
@@ -246,4 +242,41 @@ function withBreaks(text: string, baseKey: string): ReactNode[] {
     if (part) out.push(<Fragment key={`${baseKey}-t-${i}`}>{part}</Fragment>);
   });
   return out;
+}
+
+function CodeBlock({ lang, body }: { lang: string | null; body: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(body);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = body;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    }
+  }, [body]);
+
+  return (
+    <div className="md-code-block">
+      <div className="md-code-head">
+        <span className="md-code-lang">{lang ?? "text"}</span>
+        <button className="md-code-copy" onClick={handleCopy} type="button">
+          {copied ? "已复制" : "复制"}
+        </button>
+      </div>
+      <pre className="md-code">
+        <code>{body}</code>
+      </pre>
+    </div>
+  );
 }
