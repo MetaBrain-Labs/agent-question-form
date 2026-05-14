@@ -71,38 +71,6 @@ export function MessageBubble({
         </div>
       )}
 
-      {message.questionForm && (
-        // <div className="question-form-box">
-        //   {message.questionForm.state === "generating" ? (
-        //     <div className="qf-generating">
-        //       <div className="qf-pulse-ring" />
-        //       <div className="qf-label">正在生成 Question Form</div>
-        //       <div className="qf-dots">
-        //         <span />
-        //         <span />
-        //         <span />
-        //       </div>
-        //     </div>
-        //   ) : (
-        //     <div className="qf-complete">
-        //       <div className="qf-badge">✓ Question Form</div>
-        //       <pre className="qf-content">{message.questionForm.content}</pre>
-        //     </div>
-        //   )}
-        // </div>
-        <ProseBlock
-          text={message.questionForm.content || ""}
-          isLastAssistant={!!isLast}
-          streaming={streaming}
-          nextUserContent={nextUserContent}
-          locallySubmitted={locallySubmitted}
-          onSubmitForm={(formId, text) => {
-            console.log("formId", formId);
-            console.log("text", text);
-          }}
-        />
-      )}
-
       {message.toolCalls && message.toolCalls.length > 0 && (
         <div className="tool-calls-row">
           {message.toolCalls.map((tc, i) => (
@@ -134,6 +102,34 @@ export function MessageBubble({
             console.log("text", text);
           }}
         />
+      )}
+
+      {message.questionForm && (
+        <div>
+          {message.questionForm.state === "generating" ? (
+            <div className="qf-generating">
+              <div className="qf-pulse-ring" />
+              <div className="qf-label">正在生成 Question Form</div>
+              <div className="qf-dots">
+                <span />
+                <span />
+                <span />
+              </div>
+            </div>
+          ) : (
+            <ProseBlock
+              text={message.questionForm.content || ""}
+              isLastAssistant={!!isLast}
+              streaming={streaming}
+              nextUserContent={nextUserContent}
+              locallySubmitted={locallySubmitted}
+              onSubmitForm={(formId, text) => {
+                console.log("formId", formId);
+                console.log("text", text);
+              }}
+            />
+          )}
+        </div>
       )}
 
       {!message.content && !message.thinking && !message.questionForm && (
