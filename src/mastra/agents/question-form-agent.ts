@@ -1,15 +1,14 @@
 import { Agent } from "@mastra/core/agent";
 import { Memory } from "@mastra/memory";
-import { weatherTool } from "../tools/weather-tool";
 import { scorers } from "../scorers/question-form-scorer";
-import { DISCOVERY_AND_PHILOSOPHY } from "../prompts/discovery";
+import { DISCOVERY } from "../prompts/discovery";
 
 export const questionFromAgent = new Agent({
   id: "question-from-agent",
   name: "Question Form Agent",
-  instructions: DISCOVERY_AND_PHILOSOPHY,
+  instructions: DISCOVERY,
   model: "deepseek/deepseek-v4-pro",
-  tools: { weatherTool },
+  tools: {},
   scorers: {
     toolCallAppropriateness: {
       scorer: scorers.toolCallAppropriatenessScorer,
