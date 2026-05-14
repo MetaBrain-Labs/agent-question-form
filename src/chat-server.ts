@@ -79,10 +79,16 @@ app.post("/api/chat", async (req, res) => {
       },
     });
 
+    const TAG_START = "<question-form";
+    const TAG_END = "</question-form>";
+    const PREFIXES = Array.from({ length: TAG_START.length }, (_, i) =>
+      TAG_START.slice(0, i + 1)
+    ); // ["<", "<q", "<qu", ... , "<question-form"]
+
     let fullText = "";
     let formState: "normal" | "collecting" = "normal";
     let formBuffer = "";
-    let textBuffer = "";
+    let pendingText = "";
 
     for await (const chunk of streamToAsyncIterable(stream.fullStream)) {
       const event = chunkToStreamEvent(chunk);
@@ -90,46 +96,64 @@ app.post("/api/chat", async (req, res) => {
 
       if (event.type === "text" && event.content) {
         fullText += event.content;
-        textBuffer += event.content;
 
         if (formState === "normal") {
-          // 检测 <question-form（可能跨 chunk，用末尾 30 字符缓冲区匹配）
-          const scan = textBuffer.slice(-30 - event.content.length);
-          const match = scan.match(/<question-form\b/);
-          if (match) {
-            const idx = scan.indexOf(match[0]);
-            const before = scan.slice(0, idx);
-            const after = scan.slice(idx);
-            // 发送标签之前的普通文本
-            if (before.trim()) {
-              send({ type: "text", content: before });
+          pendingText += event.content;
+
+          // 检测 <question-form（可能跨多个 chunk）
+          const tagIdx = pendingText.indexOf(TAG_START);
+          if (tagIdx !== -1) {
+            // 标签之前的普通文本先发送
+            if (tagIdx > 0) {
+              send({ type: "text", content: pendingText.slice(0, tagIdx) });
             }
             // 进入收集模式
             formState = "collecting";
-            formBuffer = after;
-            textBuffer = "";
+            formBuffer = pendingText.slice(tagIdx);
+            pendingText = "";
             send({ type: "question-form-start" });
           } else {
-            send({ type: "text", content: event.content });
+            // 未找到完整标签，检查末尾是否可能是标签前缀
+            const mayBePrefix = PREFIXES.some((p) => pendingText.endsWith(p));
+            if (!mayBePrefix) {
+              // 不可能是标签，安全发送
+              send({ type: "text", content: pendingText });
+              pendingText = "";
+            }
+            // 可能是前缀，保留在 pendingText 等待下一个 chunk
           }
         } else {
-          // 收集模式：检测 </question-form>
-          if (formBuffer.includes("</question-form>")) {
-            const endIdx = formBuffer.indexOf("</question-form>") + "</question-form>".length;
-            const formContent = formBuffer.slice(0, endIdx);
-            const rest = formBuffer.slice(endIdx);
+          // 收集模式：累积并检测 </question-form>
+          formBuffer += event.content;
+          const endIdx = formBuffer.indexOf(TAG_END);
+          if (endIdx !== -1) {
+            const formContent = formBuffer.slice(
+              0,
+              endIdx + TAG_END.length
+            );
+            const rest = formBuffer.slice(endIdx + TAG_END.length);
             send({ type: "question-form-complete", content: formContent });
             formState = "normal";
             formBuffer = "";
-            textBuffer = "";
+            pendingText = "";
             if (rest.trim()) {
               send({ type: "text", content: rest });
             }
           }
         }
       } else {
+        // 非文本事件（reasoning / tool-call 等）先 flush pending text
+        if (formState === "normal" && pendingText) {
+          send({ type: "text", content: pendingText });
+          pendingText = "";
+        }
         send(event);
       }
+    }
+
+    // flush 残留的 pending text
+    if (formState === "normal" && pendingText) {
+      send({ type: "text", content: pendingText });
     }
 
     printAgentOutput(fullText, "Agent Response");

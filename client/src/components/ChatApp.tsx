@@ -29,6 +29,18 @@ export function ChatApp({
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const nextUserContentByAssistantId = (() => {
+    const map = new Map<string, string>();
+    for (let i = 0; i < messages.length - 1; i++) {
+      const m = messages[i]!;
+      const next = messages[i + 1]!;
+      if (m.role === "agent" && next.role === "user") {
+        map.set(m.id, next.content);
+      }
+    }
+    return map;
+  })();
+
   const scrollToBottom = useCallback(() => {
     if (containerRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
@@ -75,7 +87,14 @@ export function ChatApp({
         )}
 
         {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
+          <MessageBubble
+            key={msg.id}
+            message={msg}
+            isLast={true}
+            streaming={false}
+            nextUserContent={nextUserContentByAssistantId.get(msg.id)}
+            onSubmitForm={onSubmitForm}
+          />
         ))}
 
         {error && (
@@ -112,4 +131,8 @@ export function ChatApp({
       </form>
     </>
   );
+}
+
+function onSubmitForm() {
+  console.log("submit completed");
 }

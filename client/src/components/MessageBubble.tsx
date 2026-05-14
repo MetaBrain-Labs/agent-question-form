@@ -1,24 +1,30 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { Message } from "../types";
-import { splitOnQuestionForms } from "../utils/question-form";
+import { QuestionForm, splitOnQuestionForms } from "../utils/question-form";
+import { ProseBlock } from "./ProseBlock";
 
 interface Props {
   message: Message;
+  isLast: boolean;
+  streaming: boolean;
+  nextUserContent?: string;
+  onSubmitForm: () => void;
 }
 
-export function MessageBubble({ message }: Props) {
+export function MessageBubble({
+  message,
+  isLast,
+  streaming,
+  nextUserContent,
+  onSubmitForm,
+}: Props) {
   const [thinkingOpen, setThinkingOpen] = useState(true);
   const [userScrolled, setUserScrolled] = useState(false);
-  const thinkingRef = useRef<HTMLDivElement>(null);
+  const [locallySubmitted, setLocallySubmitted] = useState<Set<string>>(
+    () => new Set(),
+  );
 
-  if (message.role === "agent") {
-    const cleaned = useMemo(
-      () => stripArtifact(message.content),
-      [message.content],
-    );
-    const segments = useMemo(() => splitOnQuestionForms(cleaned), [cleaned]);
-    console.log("segments", segments);
-  }
+  const thinkingRef = useRef<HTMLDivElement>(null);
 
   const isAtBottom = useCallback(() => {
     const el = thinkingRef.current;
@@ -66,24 +72,35 @@ export function MessageBubble({ message }: Props) {
       )}
 
       {message.questionForm && (
-        <div className="question-form-box">
-          {message.questionForm.state === "generating" ? (
-            <div className="qf-generating">
-              <div className="qf-pulse-ring" />
-              <div className="qf-label">正在生成 Question Form</div>
-              <div className="qf-dots">
-                <span />
-                <span />
-                <span />
-              </div>
-            </div>
-          ) : (
-            <div className="qf-complete">
-              <div className="qf-badge">✓ Question Form</div>
-              <pre className="qf-content">{message.questionForm.content}</pre>
-            </div>
-          )}
-        </div>
+        // <div className="question-form-box">
+        //   {message.questionForm.state === "generating" ? (
+        //     <div className="qf-generating">
+        //       <div className="qf-pulse-ring" />
+        //       <div className="qf-label">正在生成 Question Form</div>
+        //       <div className="qf-dots">
+        //         <span />
+        //         <span />
+        //         <span />
+        //       </div>
+        //     </div>
+        //   ) : (
+        //     <div className="qf-complete">
+        //       <div className="qf-badge">✓ Question Form</div>
+        //       <pre className="qf-content">{message.questionForm.content}</pre>
+        //     </div>
+        //   )}
+        // </div>
+        <ProseBlock
+          text={message.questionForm.content || ""}
+          isLastAssistant={!!isLast}
+          streaming={streaming}
+          nextUserContent={nextUserContent}
+          locallySubmitted={locallySubmitted}
+          onSubmitForm={(formId, text) => {
+            console.log("formId", formId);
+            console.log("text", text);
+          }}
+        />
       )}
 
       {message.toolCalls && message.toolCalls.length > 0 && (
@@ -105,7 +122,18 @@ export function MessageBubble({ message }: Props) {
       )}
 
       {message.content && (
-        <div className="message-bubble agent-bubble">{message.content}</div>
+        // <div className="message-bubble agent-bubble">{message.content}</div>
+        <ProseBlock
+          text={message.content || ""}
+          isLastAssistant={!!isLast}
+          streaming={streaming}
+          nextUserContent={nextUserContent}
+          locallySubmitted={locallySubmitted}
+          onSubmitForm={(formId, text) => {
+            console.log("formId", formId);
+            console.log("text", text);
+          }}
+        />
       )}
 
       {!message.content && !message.thinking && !message.questionForm && (
@@ -123,15 +151,4 @@ export function MessageBubble({ message }: Props) {
       )}
     </div>
   );
-}
-
-function stripArtifact(content: string): string {
-  const open = content.indexOf("<artifact");
-  if (open === -1) return content;
-  const closeTag = content.indexOf(">", open);
-  const end = content.indexOf("</artifact>", closeTag);
-  return (
-    content.slice(0, open) +
-    content.slice(end === -1 ? content.length : end + 11)
-  ).trim();
 }
