@@ -1,4 +1,4 @@
-# Agent Question Form Pro
+# Agent Question Form
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13.0-brightgreen.svg)](https://nodejs.org)
@@ -22,14 +22,14 @@ An AI design assistant built on the **Mastra** framework. Its core innovation is
 
 ## Tech Stack
 
-| Layer | Technology |
-| --- | --- |
-| Agent Framework | [Mastra](https://mastra.ai) |
-| LLM | DeepSeek V4 Pro |
-| Backend | Express + SSE streaming |
-| Frontend | React 19 + TypeScript + Vite 6 + Tailwind CSS 4 |
-| Storage | LibSQL (conversation memory) + DuckDB (observability) |
-| Evaluation | Mastra Evals (tool-call accuracy / completeness / discovery compliance) |
+| Layer           | Technology                                                              |
+| --------------- | ----------------------------------------------------------------------- |
+| Agent Framework | [Mastra](https://mastra.ai)                                             |
+| LLM             | DeepSeek V4 Pro                                                         |
+| Backend         | Express + SSE streaming                                                 |
+| Frontend        | React 19 + TypeScript + Vite 6 + Tailwind CSS 4                         |
+| Storage         | LibSQL (conversation memory) + DuckDB (observability)                   |
+| Evaluation      | Mastra Evals (tool-call accuracy / completeness / discovery compliance) |
 
 ## Core Features
 
@@ -72,8 +72,8 @@ Parse Brief → Generate Artifact → 5-Dim Critique
 
 ```bash
 # 1. Clone
-git clone https://github.com/your-username/agent-question-form-pro.git
-cd agent-question-form-pro
+git clone https://github.com/MetaBrain-Labs/agent-question-form.git
+cd agent-question-form
 
 # 2. Configure environment
 cp .env.example .env
@@ -123,27 +123,27 @@ Open http://localhost:5173 to start chatting.
 
 ## API
 
-| Endpoint | Method | Description |
-| --- | --- | --- |
-| `/api/chat` | POST | SSE streaming chat, body: `{ message, threadId? }` |
-| `/api/threads` | GET | List historical threads |
-| `/api/threads/:id/messages` | GET | Retrieve messages for a thread |
-| `/api/health` | GET | Health check |
+| Endpoint                    | Method | Description                                        |
+| --------------------------- | ------ | -------------------------------------------------- |
+| `/api/chat`                 | POST   | SSE streaming chat, body: `{ message, threadId? }` |
+| `/api/threads`              | GET    | List historical threads                            |
+| `/api/threads/:id/messages` | GET    | Retrieve messages for a thread                     |
+| `/api/health`               | GET    | Health check                                       |
 
 ## Stream Event Types
 
-| Event | Description |
-| --- | --- |
-| `start` | Stream begins |
-| `thinking` / `thinking-done` | DeepSeek reasoning content |
-| `text` | Plain text output |
-| `question-form-start` | Question-form opening tag detected |
-| `question-form-complete` | Question-form fully received (with JSON) |
-| `todo-update` | TodoWrite progress update |
-| `tool-call` / `tool-result` | Mastra tool invocations |
-| `finish` | Stream complete (with token usage) |
-| `error` | Stream error |
+| Event                        | Description                              |
+| ---------------------------- | ---------------------------------------- |
+| `start`                      | Stream begins                            |
+| `thinking` / `thinking-done` | DeepSeek reasoning content               |
+| `text`                       | Plain text output                        |
+| `question-form-start`        | Question-form opening tag detected       |
+| `question-form-complete`     | Question-form fully received (with JSON) |
+| `todo-update`                | TodoWrite progress update                |
+| `tool-call` / `tool-result`  | Mastra tool invocations                  |
+| `finish`                     | Stream complete (with token usage)       |
+| `error`                      | Stream error                             |
 
 ## License
 
-[MIT](./LICENSE) © 2026 Lai Fuqing
+[MIT](./LICENSE) © 2026 MetaBrain-Labs
