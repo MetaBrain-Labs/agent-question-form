@@ -1,4 +1,4 @@
-# Agent Question Form Pro
+# Agent Question Form
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.13.0-brightgreen.svg)](https://nodejs.org)
@@ -22,14 +22,14 @@
 
 ## 技术栈
 
-| 层 | 技术 |
-| --- | --- |
-| Agent 框架 | [Mastra](https://mastra.ai) |
-| 大模型 | DeepSeek V4 Pro |
-| 后端 | Express + SSE 流式传输 |
-| 前端 | React 19 + TypeScript + Vite 6 + Tailwind CSS 4 |
-| 存储 | LibSQL（会话记忆）+ DuckDB（可观测性） |
-| 评估 | Mastra Evals（工具调用准确性 / 完整性 / 发现合规性） |
+| 层         | 技术                                                 |
+| ---------- | ---------------------------------------------------- |
+| Agent 框架 | [Mastra](https://mastra.ai)                          |
+| 大模型     | DeepSeek V4 Pro                                      |
+| 后端       | Express + SSE 流式传输                               |
+| 前端       | React 19 + TypeScript + Vite 6 + Tailwind CSS 4      |
+| 存储       | LibSQL（会话记忆）+ DuckDB（可观测性）               |
+| 评估       | Mastra Evals（工具调用准确性 / 完整性 / 发现合规性） |
 
 ## 核心特性
 
@@ -72,8 +72,8 @@ Parse Brief → Generate Artifact → 5-Dim Critique
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/your-username/agent-question-form-pro.git
-cd agent-question-form-pro
+git clone https://github.com/MetaBrain-Labs/agent-question-form.git
+cd agent-question-form
 
 # 2. 配置环境变量
 cp .env.example .env
@@ -123,27 +123,27 @@ npm run dev:all
 
 ## API
 
-| 端点 | 方法 | 说明 |
-| --- | --- | --- |
-| `/api/chat` | POST | SSE 流式对话，body: `{ message, threadId? }` |
-| `/api/threads` | GET | 查询历史线程列表 |
-| `/api/threads/:id/messages` | GET | 获取指定线程的消息历史 |
-| `/api/health` | GET | 健康检查 |
+| 端点                        | 方法 | 说明                                         |
+| --------------------------- | ---- | -------------------------------------------- |
+| `/api/chat`                 | POST | SSE 流式对话，body: `{ message, threadId? }` |
+| `/api/threads`              | GET  | 查询历史线程列表                             |
+| `/api/threads/:id/messages` | GET  | 获取指定线程的消息历史                       |
+| `/api/health`               | GET  | 健康检查                                     |
 
 ## 流式事件类型
 
-| 事件 | 说明 |
-| --- | --- |
-| `start` | 流式传输开始 |
-| `thinking` / `thinking-done` | DeepSeek 思考过程 |
-| `text` | 普通文本输出 |
-| `question-form-start` | 检测到 question-form 开始标签 |
-| `question-form-complete` | question-form 接收完成（含完整 JSON） |
-| `todo-update` | TodoWrite 进度更新 |
-| `tool-call` / `tool-result` | Mastra 工具调用 |
-| `finish` | 流式完成（含 token 用量） |
-| `error` | 流式错误 |
+| 事件                         | 说明                                  |
+| ---------------------------- | ------------------------------------- |
+| `start`                      | 流式传输开始                          |
+| `thinking` / `thinking-done` | DeepSeek 思考过程                     |
+| `text`                       | 普通文本输出                          |
+| `question-form-start`        | 检测到 question-form 开始标签         |
+| `question-form-complete`     | question-form 接收完成（含完整 JSON） |
+| `todo-update`                | TodoWrite 进度更新                    |
+| `tool-call` / `tool-result`  | Mastra 工具调用                       |
+| `finish`                     | 流式完成（含 token 用量）             |
+| `error`                      | 流式错误                              |
 
 ## 许可证
 
-[MIT](./LICENSE) © 2026 Lai Fuqing
+[MIT](./LICENSE) © 2026 MetaBrain-Labs
